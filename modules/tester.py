@@ -71,18 +71,30 @@ class Tester(BaseTester):
         self.model.eval()
         with torch.no_grad():
             test_gts, test_res = [], []
+            img_ids = []
             for batch_idx, (images_id, images, reports_ids, reports_masks) in enumerate(self.test_dataloader):
                 images, reports_ids, reports_masks = images.to(self.device), reports_ids.to(
                     self.device), reports_masks.to(self.device)
                 output = self.model(images, mode='sample')
                 reports = self.model.tokenizer.decode_batch(output.cpu().numpy())
                 ground_truths = self.model.tokenizer.decode_batch(reports_ids[:, 1:].cpu().numpy())
+                img_ids.extend(images_id)
                 test_res.extend(reports)
                 test_gts.extend(ground_truths)
             test_met = self.metric_ftns({i: [gt] for i, gt in enumerate(test_gts)},
                                         {i: [re] for i, re in enumerate(test_res)})
             log.update(**{'test_' + k: v for k, v in test_met.items()})
             print(log)
+        
+        import json 
+        import os
+        
+        if not os.path.exists(self.args.save_dir):
+            os.makedirs(self.args.save_dir)
+
+        with open(f'{self.args.save_dir}/textos-gerados.json', 'w') as f:
+            json.dump({'image_id': img_ids, 'ground_truth': test_gts, 'inference': test_res}, f, indent=4)
+        
         return log
 
     def plot(self):
